@@ -7,20 +7,19 @@
 #include <string>
 #include <vector>
 
+#include "CategorySettingsActivity.h"
 #include "activities/ActivityWithSubactivity.h"
 
-class CrossPointSettings;
-struct SettingInfo;
-
 class SettingsActivity final : public ActivityWithSubactivity {
+  static constexpr int categoryCount = 4;
+  static const char* categoryNames[categoryCount];
+
   TaskHandle_t displayTaskHandle = nullptr;
   SemaphoreHandle_t renderingMutex = nullptr;
   bool updateRequired = false;
   int selectedCategoryIndex = 0;  // Currently selected category
   const std::function<void()> onGoHome;
-
-  static constexpr int categoryCount = 4;
-  static const char* categoryNames[categoryCount];
+  std::vector<SettingInfo> categorySettings[categoryCount];
 
   static void taskTrampoline(void* param);
   [[noreturn]] void displayTaskLoop();

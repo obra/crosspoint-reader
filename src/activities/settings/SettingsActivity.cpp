@@ -3,67 +3,14 @@
 #include <GfxRenderer.h>
 #include <HardwareSerial.h>
 
-#include "CategorySettingsActivity.h"
+#include <cstring>
+
 #include "CrossPointSettings.h"
 #include "MappedInputManager.h"
+#include "SettingsList.h"
 #include "fontIds.h"
 
 const char* SettingsActivity::categoryNames[categoryCount] = {"Display", "Reader", "Controls", "System"};
-
-namespace {
-constexpr int displaySettingsCount = 6;
-const SettingInfo displaySettings[displaySettingsCount] = {
-    // Should match with SLEEP_SCREEN_MODE
-    SettingInfo::Enum("sleepScreen", "Sleep Screen", "Display", &CrossPointSettings::sleepScreen,
-                      {"Dark", "Light", "Custom", "Cover", "None"}),
-    SettingInfo::Enum("sleepScreenCoverMode", "Sleep Screen Cover Mode", "Display",
-                      &CrossPointSettings::sleepScreenCoverMode, {"Fit", "Crop"}),
-    SettingInfo::Enum("sleepScreenCoverFilter", "Sleep Screen Cover Filter", "Display",
-                      &CrossPointSettings::sleepScreenCoverFilter, {"None", "Contrast", "Inverted"}),
-    SettingInfo::Enum("statusBar", "Status Bar", "Display", &CrossPointSettings::statusBar,
-                      {"None", "No Progress", "Full w/ Percentage", "Full w/ Progress Bar", "Progress Bar"}),
-    SettingInfo::Enum("hideBatteryPercentage", "Hide Battery %", "Display",
-                      &CrossPointSettings::hideBatteryPercentage, {"Never", "In Reader", "Always"}),
-    SettingInfo::Enum("refreshFrequency", "Refresh Frequency", "Display", &CrossPointSettings::refreshFrequency,
-                      {"1 page", "5 pages", "10 pages", "15 pages", "30 pages"})};
-
-constexpr int readerSettingsCount = 9;
-const SettingInfo readerSettings[readerSettingsCount] = {
-    SettingInfo::Enum("fontFamily", "Font Family", "Reader", &CrossPointSettings::fontFamily,
-                      {"Bookerly", "Noto Sans", "Open Dyslexic"}),
-    SettingInfo::Enum("fontSize", "Font Size", "Reader", &CrossPointSettings::fontSize,
-                      {"Small", "Medium", "Large", "X Large"}),
-    SettingInfo::Enum("lineSpacing", "Line Spacing", "Reader", &CrossPointSettings::lineSpacing,
-                      {"Tight", "Normal", "Wide"}),
-    SettingInfo::Value("screenMargin", "Screen Margin", "Reader", &CrossPointSettings::screenMargin, {5, 40, 5}),
-    SettingInfo::Enum("paragraphAlignment", "Paragraph Alignment", "Reader",
-                      &CrossPointSettings::paragraphAlignment, {"Justify", "Left", "Center", "Right"}),
-    SettingInfo::Toggle("hyphenationEnabled", "Hyphenation", "Reader", &CrossPointSettings::hyphenationEnabled),
-    SettingInfo::Enum("orientation", "Reading Orientation", "Reader", &CrossPointSettings::orientation,
-                      {"Portrait", "Landscape CW", "Inverted", "Landscape CCW"}),
-    SettingInfo::Toggle("extraParagraphSpacing", "Extra Paragraph Spacing", "Reader",
-                        &CrossPointSettings::extraParagraphSpacing),
-    SettingInfo::Toggle("textAntiAliasing", "Text Anti-Aliasing", "Reader", &CrossPointSettings::textAntiAliasing)};
-
-constexpr int controlsSettingsCount = 4;
-const SettingInfo controlsSettings[controlsSettingsCount] = {
-    SettingInfo::Enum(
-        "frontButtonLayout", "Front Button Layout", "Controls", &CrossPointSettings::frontButtonLayout,
-        {"Bck, Cnfrm, Lft, Rght", "Lft, Rght, Bck, Cnfrm", "Lft, Bck, Cnfrm, Rght", "Bck, Cnfrm, Rght, Lft"}),
-    SettingInfo::Enum("sideButtonLayout", "Side Button Layout (reader)", "Controls",
-                      &CrossPointSettings::sideButtonLayout, {"Prev, Next", "Next, Prev"}),
-    SettingInfo::Toggle("longPressChapterSkip", "Long-press Chapter Skip", "Controls",
-                        &CrossPointSettings::longPressChapterSkip),
-    SettingInfo::Enum("shortPwrBtn", "Short Power Button Click", "Controls", &CrossPointSettings::shortPwrBtn,
-                      {"Ignore", "Sleep", "Page Turn"})};
-
-constexpr int systemSettingsCount = 5;
-const SettingInfo systemSettings[systemSettingsCount] = {
-    SettingInfo::Enum("sleepTimeout", "Time to Sleep", "System", &CrossPointSettings::sleepTimeout,
-                      {"1 min", "5 min", "10 min", "15 min", "30 min"}),
-    SettingInfo::Action("KOReader Sync"), SettingInfo::Action("OPDS Browser"), SettingInfo::Action("Clear Cache"),
-    SettingInfo::Action("Check for updates")};
-}  // namespace
 
 void SettingsActivity::taskTrampoline(void* param) {
   auto* self = static_cast<SettingsActivity*>(param);
@@ -76,6 +23,23 @@ void SettingsActivity::onEnter() {
 
   // Reset selection to first category
   selectedCategoryIndex = 0;
+
+  // Build per-category settings from the single source of truth
+  for (auto& cat : categorySettings) cat.clear();
+  for (const auto& setting : getSettingsList()) {
+    if (!setting.category) continue;
+    for (int i = 0; i < categoryCount; i++) {
+      if (strcmp(setting.category, categoryNames[i]) == 0) {
+        categorySettings[i].push_back(setting);
+        break;
+      }
+    }
+  }
+  // Append device-only Action items to System (index 3)
+  categorySettings[3].push_back(SettingInfo::Action("KOReader Sync"));
+  categorySettings[3].push_back(SettingInfo::Action("OPDS Browser"));
+  categorySettings[3].push_back(SettingInfo::Action("Clear Cache"));
+  categorySettings[3].push_back(SettingInfo::Action("Check for updates"));
 
   // Trigger first update
   updateRequired = true;
@@ -141,30 +105,9 @@ void SettingsActivity::enterCategory(int categoryIndex) {
   xSemaphoreTake(renderingMutex, portMAX_DELAY);
   exitActivity();
 
-  const SettingInfo* settingsList = nullptr;
-  int settingsCount = 0;
-
-  switch (categoryIndex) {
-    case 0:  // Display
-      settingsList = displaySettings;
-      settingsCount = displaySettingsCount;
-      break;
-    case 1:  // Reader
-      settingsList = readerSettings;
-      settingsCount = readerSettingsCount;
-      break;
-    case 2:  // Controls
-      settingsList = controlsSettings;
-      settingsCount = controlsSettingsCount;
-      break;
-    case 3:  // System
-      settingsList = systemSettings;
-      settingsCount = systemSettingsCount;
-      break;
-  }
-
-  enterNewActivity(new CategorySettingsActivity(renderer, mappedInput, categoryNames[categoryIndex], settingsList,
-                                                settingsCount, [this] {
+  const auto& settings = categorySettings[categoryIndex];
+  enterNewActivity(new CategorySettingsActivity(renderer, mappedInput, categoryNames[categoryIndex], settings.data(),
+                                                static_cast<int>(settings.size()), [this] {
                                                   exitActivity();
                                                   updateRequired = true;
                                                 }));
