@@ -972,12 +972,12 @@ void CrossPointWebServer::handleGetSettings() const {
     switch (setting.type) {
       case SettingType::TOGGLE:
         obj["type"] = "toggle";
-        obj["value"] = SETTINGS.*(setting.valuePtr) ? 1 : 0;
+        obj["value"] = (setting.valueGetter ? setting.valueGetter() : SETTINGS.*(setting.valuePtr)) ? 1 : 0;
         break;
 
       case SettingType::ENUM: {
         obj["type"] = "enum";
-        obj["value"] = SETTINGS.*(setting.valuePtr);
+        obj["value"] = setting.valueGetter ? setting.valueGetter() : SETTINGS.*(setting.valuePtr);
         JsonArray opts = obj["options"].to<JsonArray>();
         for (const auto& opt : setting.enumValues) {
           opts.add(opt);
@@ -987,7 +987,7 @@ void CrossPointWebServer::handleGetSettings() const {
 
       case SettingType::VALUE:
         obj["type"] = "value";
-        obj["value"] = SETTINGS.*(setting.valuePtr);
+        obj["value"] = setting.valueGetter ? setting.valueGetter() : SETTINGS.*(setting.valuePtr);
         obj["min"] = setting.valueRange.min;
         obj["max"] = setting.valueRange.max;
         obj["step"] = setting.valueRange.step;
@@ -995,7 +995,11 @@ void CrossPointWebServer::handleGetSettings() const {
 
       case SettingType::STRING:
         obj["type"] = "string";
-        obj["value"] = setting.stringPtr;
+        if (setting.stringGetter) {
+          obj["value"] = setting.stringGetter();
+        } else {
+          obj["value"] = setting.stringPtr;
+        }
         obj["maxLength"] = setting.stringMaxLen;
         break;
 
@@ -1043,7 +1047,11 @@ void CrossPointWebServer::handlePostSettings() {
     switch (setting.type) {
       case SettingType::TOGGLE: {
         const int value = doc[setting.key].as<int>();
-        SETTINGS.*(setting.valuePtr) = value ? 1 : 0;
+        if (setting.valueSetter) {
+          setting.valueSetter(value ? 1 : 0);
+        } else {
+          SETTINGS.*(setting.valuePtr) = value ? 1 : 0;
+        }
         updatedCount++;
         break;
       }
@@ -1051,7 +1059,11 @@ void CrossPointWebServer::handlePostSettings() {
       case SettingType::ENUM: {
         const int value = doc[setting.key].as<int>();
         if (value >= 0 && value < static_cast<int>(setting.enumValues.size())) {
-          SETTINGS.*(setting.valuePtr) = static_cast<uint8_t>(value);
+          if (setting.valueSetter) {
+            setting.valueSetter(static_cast<uint8_t>(value));
+          } else {
+            SETTINGS.*(setting.valuePtr) = static_cast<uint8_t>(value);
+          }
           updatedCount++;
         }
         break;
@@ -1060,7 +1072,11 @@ void CrossPointWebServer::handlePostSettings() {
       case SettingType::VALUE: {
         const int value = doc[setting.key].as<int>();
         if (value >= setting.valueRange.min && value <= setting.valueRange.max) {
-          SETTINGS.*(setting.valuePtr) = static_cast<uint8_t>(value);
+          if (setting.valueSetter) {
+            setting.valueSetter(static_cast<uint8_t>(value));
+          } else {
+            SETTINGS.*(setting.valuePtr) = static_cast<uint8_t>(value);
+          }
           updatedCount++;
         }
         break;
@@ -1069,8 +1085,12 @@ void CrossPointWebServer::handlePostSettings() {
       case SettingType::STRING: {
         const char* value = doc[setting.key].as<const char*>();
         if (value != nullptr) {
-          strncpy(setting.stringPtr, value, setting.stringMaxLen);
-          setting.stringPtr[setting.stringMaxLen] = '\0';
+          if (setting.stringSetter) {
+            setting.stringSetter(value);
+          } else {
+            strncpy(setting.stringPtr, value, setting.stringMaxLen);
+            setting.stringPtr[setting.stringMaxLen] = '\0';
+          }
           updatedCount++;
         }
         break;
@@ -1083,6 +1103,7 @@ void CrossPointWebServer::handlePostSettings() {
 
   if (updatedCount > 0) {
     SETTINGS.saveToFile();
+    KOREADER_STORE.saveToFile();
     Serial.printf("[%lu] [WEB] Updated %d settings and saved to file\n", millis(), updatedCount);
   }
 

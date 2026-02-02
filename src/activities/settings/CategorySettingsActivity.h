@@ -30,6 +30,12 @@ struct SettingInfo {
   };
   ValueRange valueRange;
 
+  // Dynamic accessors for settings not in CrossPointSettings
+  std::function<uint8_t()> valueGetter;
+  std::function<void(uint8_t)> valueSetter;
+  std::function<std::string()> stringGetter;
+  std::function<void(const std::string&)> stringSetter;
+
   static SettingInfo Toggle(const char* key, const char* name, const char* category,
                             uint8_t CrossPointSettings::* ptr) {
     return {key, name, category, SettingType::TOGGLE, ptr, nullptr, 0, {}, {}};
@@ -51,6 +57,34 @@ struct SettingInfo {
 
   static SettingInfo String(const char* key, const char* name, const char* category, char* ptr, size_t maxLen) {
     return {key, name, category, SettingType::STRING, nullptr, ptr, maxLen, {}, {}};
+  }
+
+  static SettingInfo DynamicEnum(const char* key, const char* name, const char* category,
+                                 std::function<uint8_t()> getter, std::function<void(uint8_t)> setter,
+                                 std::vector<std::string> values) {
+    SettingInfo info{};
+    info.key = key;
+    info.name = name;
+    info.category = category;
+    info.type = SettingType::ENUM;
+    info.enumValues = std::move(values);
+    info.valueGetter = std::move(getter);
+    info.valueSetter = std::move(setter);
+    return info;
+  }
+
+  static SettingInfo DynamicString(const char* key, const char* name, const char* category,
+                                   std::function<std::string()> getter,
+                                   std::function<void(const std::string&)> setter, size_t maxLen) {
+    SettingInfo info{};
+    info.key = key;
+    info.name = name;
+    info.category = category;
+    info.type = SettingType::STRING;
+    info.stringMaxLen = maxLen;
+    info.stringGetter = std::move(getter);
+    info.stringSetter = std::move(setter);
+    return info;
   }
 };
 

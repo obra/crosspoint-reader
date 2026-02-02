@@ -2,11 +2,13 @@
 #include <vector>
 
 #include "CrossPointSettings.h"
+#include "KOReaderCredentialStore.h"
 #include "activities/settings/CategorySettingsActivity.h"
 
-// Returns the flat list of all settings for the web API.
-// This is used by CrossPointWebServer to expose settings over HTTP.
-// Categories match the device UI grouping for consistency.
+// Returns the list of all settings, used by both the device UI and the web API.
+// Categories match the device UI grouping. Settings with categories that don't
+// match a device UI category (e.g. "KOReader Sync", "OPDS Browser") are
+// web-only — they correspond to device sub-screens accessed via Action items.
 inline std::vector<SettingInfo> getSettingsList() {
   return {
       // Display
@@ -55,12 +57,28 @@ inline std::vector<SettingInfo> getSettingsList() {
       SettingInfo::Enum("sleepTimeout", "Time to Sleep", "System", &CrossPointSettings::sleepTimeout,
                         {"1 min", "5 min", "10 min", "15 min", "30 min"}),
 
-      // Calibre / OPDS
-      SettingInfo::String("opdsServerUrl", "OPDS Server URL", "Calibre", SETTINGS.opdsServerUrl,
+      // KOReader Sync (device sub-screen accessed via System > KOReader Sync action)
+      SettingInfo::DynamicString(
+          "koUsername", "Username", "KOReader Sync", [] { return KOREADER_STORE.getUsername(); },
+          [](const std::string& v) { KOREADER_STORE.setCredentials(v, KOREADER_STORE.getPassword()); }, 64),
+      SettingInfo::DynamicString(
+          "koPassword", "Password", "KOReader Sync", [] { return KOREADER_STORE.getPassword(); },
+          [](const std::string& v) { KOREADER_STORE.setCredentials(KOREADER_STORE.getUsername(), v); }, 64),
+      SettingInfo::DynamicString(
+          "koServerUrl", "Sync Server URL", "KOReader Sync", [] { return KOREADER_STORE.getServerUrl(); },
+          [](const std::string& v) { KOREADER_STORE.setServerUrl(v); }, 128),
+      SettingInfo::DynamicEnum(
+          "koMatchMethod", "Document Matching", "KOReader Sync",
+          [] { return static_cast<uint8_t>(KOREADER_STORE.getMatchMethod()); },
+          [](uint8_t v) { KOREADER_STORE.setMatchMethod(static_cast<DocumentMatchMethod>(v)); },
+          {"Filename", "Binary"}),
+
+      // OPDS Browser (device sub-screen accessed via System > OPDS Browser action)
+      SettingInfo::String("opdsServerUrl", "Server URL", "OPDS Browser", SETTINGS.opdsServerUrl,
                           sizeof(SETTINGS.opdsServerUrl) - 1),
-      SettingInfo::String("opdsUsername", "OPDS Username", "Calibre", SETTINGS.opdsUsername,
+      SettingInfo::String("opdsUsername", "Username", "OPDS Browser", SETTINGS.opdsUsername,
                           sizeof(SETTINGS.opdsUsername) - 1),
-      SettingInfo::String("opdsPassword", "OPDS Password", "Calibre", SETTINGS.opdsPassword,
+      SettingInfo::String("opdsPassword", "Password", "OPDS Browser", SETTINGS.opdsPassword,
                           sizeof(SETTINGS.opdsPassword) - 1),
   };
 }
