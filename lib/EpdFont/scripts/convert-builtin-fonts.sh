@@ -5,8 +5,8 @@ set -e
 cd "$(dirname "$0")"
 
 READER_FONT_STYLES=("Regular" "Italic" "Bold" "BoldItalic")
-BOOKERLY_FONT_SIZES=(12 14 16 18)
-NOTOSANS_FONT_SIZES=(12 14 16 18)
+BOOKERLY_FONT_SIZES=(8 12 14 16 18)
+NOTOSANS_FONT_SIZES=(8 12 14 16 18)
 OPENDYSLEXIC_FONT_SIZES=(8 10 12 14)
 
 for size in ${BOOKERLY_FONT_SIZES[@]}; do
@@ -51,5 +51,3 @@ for size in ${UI_FONT_SIZES[@]}; do
     echo "Generated $output_path"
   done
 done
-
-python fontconvert.py notosans_8_regular 8 ../builtinFonts/source/NotoSans/NotoSans-Regular.ttf > ../builtinFonts/notosans_8_regular.h

@@ -29,7 +29,7 @@ inline std::vector<SettingInfo> getSettingsList() {
       SettingInfo::Enum("fontFamily", "Font Family", "Reader", &CrossPointSettings::fontFamily,
                         {"Bookerly", "Noto Sans", "Open Dyslexic"}),
       SettingInfo::Enum("fontSize", "Font Size", "Reader", &CrossPointSettings::fontSize,
-                        {"Small", "Medium", "Large", "X Large"}),
+                        {"X Small", "Small", "Medium", "Large", "X Large"}),
       SettingInfo::Enum("lineSpacing", "Line Spacing", "Reader", &CrossPointSettings::lineSpacing,
                         {"Tight", "Normal", "Wide"}),
       SettingInfo::Value("screenMargin", "Screen Margin", "Reader", &CrossPointSettings::screenMargin, {5, 40, 5}),
