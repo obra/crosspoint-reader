@@ -965,6 +965,9 @@ void CrossPointWebServer::handleGetSettings() const {
     JsonObject obj = settingsArray.add<JsonObject>();
     obj["key"] = setting.key;
     obj["name"] = setting.name;
+    if (setting.category) {
+      obj["category"] = setting.category;
+    }
 
     switch (setting.type) {
       case SettingType::TOGGLE:

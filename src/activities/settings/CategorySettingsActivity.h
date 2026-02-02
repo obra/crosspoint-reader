@@ -16,6 +16,7 @@ enum class SettingType { TOGGLE, ENUM, ACTION, VALUE, STRING };
 struct SettingInfo {
   const char* key;                         // JSON key for web API (nullptr for ACTION types)
   const char* name;                        // Display name of the setting
+  const char* category;                    // Category for grouping in web UI (nullptr = uncategorized)
   SettingType type;
   uint8_t CrossPointSettings::* valuePtr;  // Pointer to member in CrossPointSettings (for TOGGLE/ENUM/VALUE)
   char* stringPtr;                         // Pointer to char array (for STRING type)
@@ -29,26 +30,27 @@ struct SettingInfo {
   };
   ValueRange valueRange;
 
-  static SettingInfo Toggle(const char* key, const char* name, uint8_t CrossPointSettings::* ptr) {
-    return {key, name, SettingType::TOGGLE, ptr, nullptr, 0, {}, {}};
+  static SettingInfo Toggle(const char* key, const char* name, const char* category,
+                            uint8_t CrossPointSettings::* ptr) {
+    return {key, name, category, SettingType::TOGGLE, ptr, nullptr, 0, {}, {}};
   }
 
-  static SettingInfo Enum(const char* key, const char* name, uint8_t CrossPointSettings::* ptr,
-                          std::vector<std::string> values) {
-    return {key, name, SettingType::ENUM, ptr, nullptr, 0, std::move(values), {}};
+  static SettingInfo Enum(const char* key, const char* name, const char* category,
+                          uint8_t CrossPointSettings::* ptr, std::vector<std::string> values) {
+    return {key, name, category, SettingType::ENUM, ptr, nullptr, 0, std::move(values), {}};
   }
 
   static SettingInfo Action(const char* name) {
-    return {nullptr, name, SettingType::ACTION, nullptr, nullptr, 0, {}, {}};
+    return {nullptr, name, nullptr, SettingType::ACTION, nullptr, nullptr, 0, {}, {}};
   }
 
-  static SettingInfo Value(const char* key, const char* name, uint8_t CrossPointSettings::* ptr,
-                           const ValueRange valueRange) {
-    return {key, name, SettingType::VALUE, ptr, nullptr, 0, {}, valueRange};
+  static SettingInfo Value(const char* key, const char* name, const char* category,
+                           uint8_t CrossPointSettings::* ptr, const ValueRange valueRange) {
+    return {key, name, category, SettingType::VALUE, ptr, nullptr, 0, {}, valueRange};
   }
 
-  static SettingInfo String(const char* key, const char* name, char* ptr, size_t maxLen) {
-    return {key, name, SettingType::STRING, nullptr, ptr, maxLen, {}, {}};
+  static SettingInfo String(const char* key, const char* name, const char* category, char* ptr, size_t maxLen) {
+    return {key, name, category, SettingType::STRING, nullptr, ptr, maxLen, {}, {}};
   }
 };
 

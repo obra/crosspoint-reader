@@ -168,13 +168,11 @@
       <a href="/settings">Settings</a>
     </div>
 
-    <div class="card">
-      <div id="settings-container">
-        <div class="loading">Loading settings...</div>
-      </div>
-      <button id="save-btn" class="save-btn" style="display: none;">Save Settings</button>
-      <div id="status-message" class="status-message"></div>
+    <div id="settings-container">
+      <div class="card"><div class="loading">Loading settings...</div></div>
     </div>
+    <button id="save-btn" class="save-btn" style="display: none;">Save Settings</button>
+    <div id="status-message" class="status-message"></div>
 
     <div class="card">
       <p style="text-align: center; color: #95a5a6; margin: 0">
@@ -205,67 +203,86 @@
       const container = document.getElementById('settings-container');
       container.innerHTML = '';
 
+      // Group settings by category
+      const categories = new Map();
       settings.forEach(setting => {
-        originalSettings[setting.key] = setting.value;
-        currentSettings[setting.key] = setting.value;
+        const cat = setting.category || 'Other';
+        if (!categories.has(cat)) categories.set(cat, []);
+        categories.get(cat).push(setting);
+      });
 
-        const row = document.createElement('div');
-        row.className = 'setting-row';
+      categories.forEach((catSettings, categoryName) => {
+        const card = document.createElement('div');
+        card.className = 'card';
 
-        const label = document.createElement('span');
-        label.className = 'setting-label';
-        label.textContent = setting.name;
+        const heading = document.createElement('h2');
+        heading.textContent = categoryName;
+        card.appendChild(heading);
 
-        const control = document.createElement('div');
-        control.className = 'setting-control';
+        catSettings.forEach(setting => {
+          originalSettings[setting.key] = setting.value;
+          currentSettings[setting.key] = setting.value;
 
-        switch (setting.type) {
-          case 'toggle':
-            control.innerHTML = `
-              <label class="toggle-switch">
-                <input type="checkbox" id="${setting.key}" ${setting.value ? 'checked' : ''}>
-                <span class="toggle-slider"></span>
-              </label>
-            `;
-            break;
+          const row = document.createElement('div');
+          row.className = 'setting-row';
 
-          case 'enum':
-            let options = setting.options.map((opt, idx) =>
-              `<option value="${idx}" ${setting.value === idx ? 'selected' : ''}>${opt}</option>`
-            ).join('');
-            control.innerHTML = `<select id="${setting.key}">${options}</select>`;
-            break;
+          const label = document.createElement('span');
+          label.className = 'setting-label';
+          label.textContent = setting.name;
 
-          case 'value':
-            control.innerHTML = `
-              <input type="number" id="${setting.key}"
-                value="${setting.value}"
-                min="${setting.min}"
-                max="${setting.max}"
-                step="${setting.step}">
-            `;
-            break;
+          const control = document.createElement('div');
+          control.className = 'setting-control';
 
-          case 'string':
-            control.innerHTML = `
-              <input type="text" id="${setting.key}"
-                value="${setting.value || ''}"
-                maxlength="${setting.maxLength}"
-                placeholder="Enter URL...">
-            `;
-            break;
-        }
+          switch (setting.type) {
+            case 'toggle':
+              control.innerHTML = `
+                <label class="toggle-switch">
+                  <input type="checkbox" id="${setting.key}" ${setting.value ? 'checked' : ''}>
+                  <span class="toggle-slider"></span>
+                </label>
+              `;
+              break;
 
-        row.appendChild(label);
-        row.appendChild(control);
-        container.appendChild(row);
+            case 'enum':
+              let options = setting.options.map((opt, idx) =>
+                `<option value="${idx}" ${setting.value === idx ? 'selected' : ''}>${opt}</option>`
+              ).join('');
+              control.innerHTML = `<select id="${setting.key}">${options}</select>`;
+              break;
 
-        // Add change listener
-        const input = control.querySelector('input, select');
-        if (input) {
-          input.addEventListener('change', () => updateCurrentValue(setting));
-          input.addEventListener('input', () => updateCurrentValue(setting));
-        }
+            case 'value':
+              control.innerHTML = `
+                <input type="number" id="${setting.key}"
+                  value="${setting.value}"
+                  min="${setting.min}"
+                  max="${setting.max}"
+                  step="${setting.step}">
+              `;
+              break;
+
+            case 'string':
+              control.innerHTML = `
+                <input type="text" id="${setting.key}"
+                  value="${setting.value || ''}"
+                  maxlength="${setting.maxLength}"
+                  placeholder="Enter value...">
+              `;
+              break;
+          }
+
+          row.appendChild(label);
+          row.appendChild(control);
+          card.appendChild(row);
+
+          // Add change listener
+          const input = control.querySelector('input, select');
+          if (input) {
+            input.addEventListener('change', () => updateCurrentValue(setting));
+            input.addEventListener('input', () => updateCurrentValue(setting));
+          }
+        });
+
+        container.appendChild(card);
       });
 
       document.getElementById('save-btn').style.display = 'block';
